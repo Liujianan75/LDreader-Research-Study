@@ -211,7 +211,8 @@ function createServer({ root = ROOT, configLoader = () => loadConfig(root), fetc
 }
 
 module.exports = { createServer, loadConfig, validateAIInput, buildMessages, readSSE, requestAI, AI_PROMPT_VERSION };
-if (typeof require === 'function' && require.main === module) {
+// 仅 Node 直接执行时启动监听；Rollup 的模块包装没有 parent，不会触发。
+if (module.parent === null) {
   const port = Number(process.env.LDREADER_PORT || 8765);
   createServer().listen(port, '127.0.0.1', () => console.log(`LDreader: http://127.0.0.1:${port}/LDreader_experiment.html`));
 }

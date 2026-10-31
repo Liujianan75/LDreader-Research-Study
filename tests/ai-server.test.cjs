@@ -2,6 +2,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const vm = require('node:vm');
+const { readFileSync } = require('node:fs');
 const { createServer, validateAIInput, buildMessages, readSSE, requestAI } = require('../server.cjs');
 const config = { configured:true, provider:'siliconflow', apiKey:'test-secret-only', model:'test-model', endpoint:'https://example.invalid/chat/completions', maxTokens:128, temperature:0.4, timeoutMs:2000, enableThinking:false };
 const input = { kind:'explain', quote:'人力车', context:'雨天，车夫仍在拉人力车。', title:'测试作品', author:'测试作者', language:'zh-CN', outputLanguage:'zh-CN' };
@@ -10,6 +12,13 @@ function fakeResponse(text=fixture) {
   const bytes = new TextEncoder().encode(text);
   return new Response(new ReadableStream({ start(controller){ for(let i=0;i<bytes.length;i+=7)controller.enqueue(bytes.slice(i,i+7));controller.close(); } }), {headers:{'content-type':'text/event-stream'}});
 }
+test('打包模块不依赖 __dirname，也不会触发独立 CLI 监听',()=>{
+  const bundledModule={exports:{}};
+  const bundledRequire=id=>require(id);
+  Object.defineProperty(bundledRequire,'main',{get(){throw new Error('打包模块不得读取 CLI require.main');}});
+  vm.runInNewContext(readFileSync(require.resolve('../server.cjs'),'utf8'),{module:bundledModule,require:bundledRequire,process:{cwd:()=>'/fixture-bundle',env:{}},fetch,URL,TextDecoder,AbortController,Buffer,setTimeout,clearTimeout,console});
+  assert.equal(typeof bundledModule.exports.createServer,'function');
+});
 test('流式分块、中文 UTF-8、多 data 行和思考内容过滤', async()=>{
   const events=[];await readSSE(new Response('data: first\r\ndata: second\r\n\r\n').body,data=>events.push(data));assert.deepEqual(events,['first\nsecond']);
   let content='', sent;
