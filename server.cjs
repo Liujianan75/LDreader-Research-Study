@@ -4,7 +4,8 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { createHash, timingSafeEqual } = require('node:crypto');
 
-const ROOT = __dirname;
+// Nitro 将 CommonJS 打包为 ESM 时不提供 __dirname；独立运行仍使用源码目录。
+const ROOT = typeof __dirname === 'string' ? __dirname : process.cwd();
 const AI_PROMPT_VERSION = 'jdweb-full-context-v2';
 const PUBLIC_ERROR = {
   401: 'AI 服务认证失败，请检查本机密钥。',
@@ -210,7 +211,7 @@ function createServer({ root = ROOT, configLoader = () => loadConfig(root), fetc
 }
 
 module.exports = { createServer, loadConfig, validateAIInput, buildMessages, readSSE, requestAI, AI_PROMPT_VERSION };
-if (require.main === module) {
+if (typeof require === 'function' && require.main === module) {
   const port = Number(process.env.LDREADER_PORT || 8765);
   createServer().listen(port, '127.0.0.1', () => console.log(`LDreader: http://127.0.0.1:${port}/LDreader_experiment.html`));
 }
