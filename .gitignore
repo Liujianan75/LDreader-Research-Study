@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+__pycache__/
+*.pyc
+.ldreader-ai.json

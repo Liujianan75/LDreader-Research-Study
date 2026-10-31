@@ -1,0 +1,9 @@
+{
+  "provider": "siliconflow",
+  "baseUrl": "https://api.siliconflow.cn/v1",
+  "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+  "apiKey": "在本机 .ldreader-ai.json 中填写，不要提交密钥",
+  "maxTokens": 1536,
+  "temperature": 0.4,
+  "enableThinking": false
+}
