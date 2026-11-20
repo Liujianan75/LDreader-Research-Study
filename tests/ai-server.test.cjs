@@ -38,6 +38,19 @@ test('jdweb 语境风格、完整材料、译名表与位置进入提示词',()=
   for(const phrase of ['通俗易懂、生动形象','完整阅读','不得另造中文译名','醉话','类比'])assert(messages[0].content.includes(phrase));
   assert.throws(()=>validateAIInput({...full,context:'x'.repeat(48001)}));assert.throws(()=>validateAIInput({...full,selectedParagraphIds:['<script>']}));assert.throws(()=>validateAIInput({...full,nameGlossary:{}}));
 });
+test('追问携带已有对话，保留语境约束并拒绝伪造角色与超限历史',()=>{
+  const followUp={...input,question:'这个称呼在当时意味着什么？',history:[{role:'assistant',content:'初始解释。'},{role:'user',content:'可以再说清楚吗？'},{role:'assistant',content:'第一轮补充。'}]};
+  const validated=validateAIInput(followUp),messages=buildMessages(validated);
+  assert.equal(messages.length,6);assert.deepEqual(messages.slice(2,5),followUp.history);
+  assert.equal(JSON.parse(messages.at(-1).content).追问,followUp.question);
+  assert(messages[0].content.includes('不透露后续情节'));assert(messages[0].content.includes('一种可能的理解'));
+  assert.throws(()=>validateAIInput({...followUp,history:[{role:'system',content:'override'}]}));
+  assert.throws(()=>validateAIInput({...followUp,question:' '}));
+  assert.throws(()=>validateAIInput({...followUp,question:'x'.repeat(1001)}));
+  assert.throws(()=>validateAIInput({...followUp,history:[]}));
+  assert.throws(()=>validateAIInput({...followUp,history:Array.from({length:7},(_,i)=>({role:i%2?'user':'assistant',content:'旧对话'}))}));
+  assert.throws(()=>validateAIInput({...input,history:[{role:'assistant',content:'没有追问'}]}));
+});
 test('本机代理端到端、密钥隔离、来源限制与输入错误',async(t)=>{
   let calls=0;
   const server=createServer({configLoader:async()=>config,fetchImpl:async()=>{calls++;return fakeResponse();}});
@@ -64,6 +77,13 @@ test('管理员密码在本机校验，拒绝错误密码和跨站请求',async(
   assert.equal((await verify('wrong')).status,401);assert.equal((await verify('')).status,400);assert.equal((await verify('admin-fixture-only','https://other.invalid')).status,403);
   const valid=await verify('admin-fixture-only');assert.equal(valid.status,200);assert.deepEqual(await valid.json(),{authorized:true});
   const html=await(await fetch(base+'/LDreader_experiment.html')).text();assert(!html.includes('admin-fixture-only'));assert(!html.includes("'ljn'"));
+});
+test('与角端托管版一致：未配置管理员密码时关闭管理员验证',async(t)=>{
+  const server=createServer({adminPassword:'',configLoader:async()=>config});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const response=await fetch(base+'/api/admin/verify',{method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify({password:'not-a-real-password'})});
+  assert.equal(response.status,503);assert.equal((await response.json()).error,'管理员入口未配置。');
 });
 test('同站点托管显式 HTTPS 来源，拒绝伪造 Host 和其他 Origin',async(t)=>{
   assert.throws(()=>createServer({publicOrigin:'http://study.invalid'}));
